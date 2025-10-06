@@ -1,3 +1,5 @@
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 import requests
 import pandas as pd 
@@ -19,35 +21,65 @@ main_url = "https://rera.punjab.gov.in/reraindex/publicview/projectinfo"
 
 engine_115 = create_engine("mysql://Shradha:%s@192.168.0.115:3306/punjab_rera" % quote("Efcdata@2025"))
 
+path = r'C:\Users\pc\Shraddha\new_env\PunjabRera\HTML_Files'
+
+log_file = r"C:\Users\pc\Shraddha\new_env\PunjabRera\Logs\step1.log"
+
+# remove log file
+if os.path.exists(log_file):
+    os.remove(log_file)
+
+
+# Set up rotating log file
+handler = RotatingFileHandler(
+    log_file,
+    maxBytes=5 * 1024 * 1024,  # 5 MB
+    backupCount=2 ,
+    encoding='utf-8'             # Keep 2 old log files
+)
+
+# Format settings
+formatter = logging.Formatter(
+    fmt="{asctime} - {levelname} - {message}",
+    style="{",
+    datefmt="%Y-%m-%d %H:%M",
+)
+handler.setFormatter(formatter)
+
+# Configure root logger
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+logger.handlers = [handler] 
+
 session = requests.Session()
 session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 })
 
 districts = [
-    # {"code": "39", "name": "Amritsar"},
-    # {"code": "79", "name": "Barnala"},
-    # {"code": "84", "name": "Bathinda"},
+    {"code": "39", "name": "Amritsar"},
+    {"code": "79", "name": "Barnala"},
+    {"code": "84", "name": "Bathinda"},
     {"code": "128", "name": "Chandigarh"},
-    # {"code": "202", "name": "Faridkot"},
-    # {"code": "204", "name": "Fatehgarh Sahib"},
-    # {"code": "206", "name": "Fazilka"},
-    # {"code": "207", "name": "Firozpur"},
-    # {"code": "232", "name": "Gurdaspur"},
-    # {"code": "248", "name": "Hoshiarpur"},
-    # {"code": "261", "name": "Jalandhar"},
-    # {"code": "300", "name": "Kapurthala"},
-    # {"code": "366", "name": "Ludhiana"},
+    {"code": "202", "name": "Faridkot"},
+    {"code": "204", "name": "Fatehgarh Sahib"},
+    {"code": "206", "name": "Fazilka"},
+    {"code": "207", "name": "Firozpur"},
+    {"code": "232", "name": "Gurdaspur"},
+    {"code": "248", "name": "Hoshiarpur"},
+    {"code": "261", "name": "Jalandhar"},
+    {"code": "300", "name": "Kapurthala"},
+    {"code": "366", "name": "Ludhiana"},
     {"code": "2024", "name": "Malerkotla"},
-    # {"code": "386", "name": "Mansa"},
-    # {"code": "393", "name": "Moga"},
-    # {"code": "399", "name": "Muktsar"},
-    # {"code": "453", "name": "Pathankot"},
-    # {"code": "454", "name": "Patiala"},
-    # {"code": "501", "name": "Rupnagar (Ropar)"},
-    # {"code": "507", "name": "Sahibzada Ajit Singh Nagar (Mohali)"},
-    # {"code": "514", "name": "Sangrur"},
-    # {"code": "527", "name": "Shahid Bhagat Singh Nagar (Nawanshahr)"},
+    {"code": "386", "name": "Mansa"},
+    {"code": "393", "name": "Moga"},
+    {"code": "399", "name": "Muktsar"},
+    {"code": "453", "name": "Pathankot"},
+    {"code": "454", "name": "Patiala"},
+    {"code": "501", "name": "Rupnagar (Ropar)"},
+    {"code": "507", "name": "Sahibzada Ajit Singh Nagar (Mohali)"},
+    {"code": "514", "name": "Sangrur"},
+    {"code": "527", "name": "Shahid Bhagat Singh Nagar (Nawanshahr)"},
     {"code": "574", "name": "Tarn Taran"}
 ]
 
@@ -137,14 +169,14 @@ def extract_data(soup2):
         # District Name
             data['district'] = tr.find_all('td')[1].text.strip()
         except Exception as e:
-            print(f"Error {e}")
+            logging.error(f" district name Error")
 
         try:
         # Project Name
             project_td = tr.find('td', class_='project-name')
             data['project_name'] = project_td['data-project-name'].strip()
         except Exception as e:
-            print(f"Error {e}")
+            logging.error(f"project name Error")
 
         # Hidden inputs
         try:
@@ -152,13 +184,13 @@ def extract_data(soup2):
             data['promoter_id'] = project_td.find('input', {'name': 'item.Promoter_ID'})['value']
             data['promoter_type'] = project_td.find('input', {'name': 'item.PromoterType'})['value']
         except Exception as e:
-            print(f"Error {e}")
+            logging.error("project id Error ")
 
         try:    
             # Promoter Name
             data['promoter_name'] = tr.find_all('td')[3].text.strip()
         except Exception as e:
-            print(f"Error {e}")
+            logging.error("promoter name Error")
 
         # Project Diary Number
         try:
@@ -166,13 +198,13 @@ def extract_data(soup2):
             data['project_diary_no'] = diary_td['data-diary-no'].strip()
             # data['project_diary_text'] = diary_td.text.strip()
         except Exception as e:
-            print(f"Error {e}")
+            logging.error(" project diary no Error")
 
         # Date
         try:
             data['valid_till_date'] = tr.find_all('td')[5].text.strip()
         except Exception as e:
-            print(f"Error {e}")
+            logging.error(f"valid_till_date Error ")
 
         # Links
         try:
@@ -180,7 +212,7 @@ def extract_data(soup2):
             # view_details_link = links_td.find('a', {'id': 'modalOpenerButtonRegdProject'})['href']
             certificate_link = links_td.find_all('a')[1]['href']
         except Exception as e:
-            print(f"Error {e}")
+            logging.error(f"certificate_link Error")
 
         # data['view_details_link'] = view_details_link
         try:
@@ -191,12 +223,9 @@ def extract_data(soup2):
 
             data['pdf'] = pdf
         except Exception as e:
-            print(f"Error {e}")
+            logging.error("pdf Error")
 
-        import pprint
-        pprint.pprint(data)
-
-
+        
         now = datetime.now()
         short_month = now.strftime("%b")
         year = now.year
@@ -217,7 +246,9 @@ for row in districts:
     max_retries = 3
     for attempt in range(1, max_retries + 1):
 
-        print(district,code)
+        logging.info(f"{district}***{code}")
+
+        print("******", district,code,"*******")
         response = session.get(main_url)
 
         time.sleep(1) 
@@ -229,7 +260,7 @@ for row in districts:
         token_value = get_token(soup)
 
         if not captcha_text :
-            print(f"Attempt {attempt} for {district}...")
+            logging.info(f"Attempt {attempt} for {district}...")
             continue
 
         post_url = "https://rera.punjab.gov.in/reraindex/PublicView/ProjectPVregdprojectInfo"
@@ -326,25 +357,36 @@ for row in districts:
         response2 = session.post(post_url,data=data,headers=headers)
         if "Invalid Capcha Text" in response2.text:
             print("❌ CAPTCHA was incorrect")
+            logging.error("❌ Incorrect Captcha")
             continue
         else:
             print("✅ CAPTCHA likely accepted — check the results table")
+            logging.info("✅ CAPTCHA likely accepted ")
 
         time.sleep(1)
         soup2 = BeautifulSoup(response2.content,'html.parser')
+
+        
+        with open(rf'{path}\{district}.html', 'wb') as f:
+            f.write(response2.content)
+            logging.info("Html Saved")
+
         data = extract_data(soup2)
         df = pd.DataFrame(data)
-        print("length of df",len(df))
+        print("length of df : ",len(df))
+        logging.info(f"length of df : {len(df)} for {district}")
 
         if not df.empty:
            
             try:
                 with engine_115.begin() as connection:
                    
-                    df.to_sql('tbl_punjab_main', if_exists='append', con=connection)
+                    df.to_sql('tbl_main_page', if_exists='append', con=connection)
                     print("record saved")
+                    logging.info("record Saved...")
                     break
             except Exception as e:
                 print(f"database error {e}")
         else:
-            print("No data returned, retrying...")
+            print("No data returned,")
+            logging.info(f"No data Returned for {district}")

@@ -1,3 +1,5 @@
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 import requests
 import pandas as pd 
@@ -32,6 +34,37 @@ session.headers.update({
 now = datetime.now()
 month = now.strftime("%b")
 year = now.year
+
+path = r'C:\Users\pc\Shraddha\new_env\PunjabRera\HTML_Files'
+
+log_file = r"C:\Users\pc\Shraddha\new_env\PunjabRera\Logs\step2.log"
+
+# remove log file
+if os.path.exists(log_file):
+    os.remove(log_file)
+
+
+# Set up rotating log file
+handler = RotatingFileHandler(
+    log_file,
+    maxBytes=5 * 1024 * 1024,  # 5 MB
+    backupCount=2 ,
+    encoding='utf-8'             # Keep 2 old log files
+)
+
+# Format settings
+formatter = logging.Formatter(
+    fmt="{asctime} - {levelname} - {message}",
+    style="{",
+    datefmt="%Y-%m-%d %H:%M",
+)
+handler.setFormatter(formatter)
+
+# Configure root logger
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+logger.handlers = [handler] 
+
 
 def clean_text(text):
     return re.sub(r'\s+', ' ', text).strip()
@@ -451,17 +484,17 @@ def extract_professional_table(table):
 
 try:
     with engine_115.begin() as connection:
-        sql = "SELECT * FROM punjab_rera.tbl_main_page "
-        dfs = pd.read_sql(sql, con=connection)
-        df = dfs[1012:]
+        sql = "SELECT * FROM punjab_rera.tbl_main_page where Month = %s "
+        df = pd.read_sql(sql, con=connection,params=(month,))
 except Exception as e:
-    print(f"database error {e}")
+    logging.error(f"database error {e}")
 
 
 ##iteration
 for index,row in df.iterrows():
     genId = row['genId']
 
+    logging.info("** processing {genid } **")
     print("** processing genid : **",genId)
 
     project_id = row['project_id']
@@ -476,6 +509,10 @@ for index,row in df.iterrows():
     response.status_code
     soup = BeautifulSoup(response.content,'html.parser')
 
+    with open(rf'{path}\{genId}.html', 'wb') as f:
+        f.write(response.content)
+        logging.info("Html Saved")
+
     ## access all tables
     tables1 = pd.read_html(str(soup))
 
@@ -489,8 +526,9 @@ for index,row in df.iterrows():
         promoter_df = get_promoter_data(promoter_table,rera_id)
         flag = insert_data(promoter_df,'tbl_pb_rera_promoter_details')
         print("promoter details :",flag)
+        logging.info(f"promoter details stored {len(promoter_df)}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -499,7 +537,7 @@ for index,row in df.iterrows():
     ## member details
     try:
         tree = html.fromstring(response.text)
-        target_divs = tree.xpath("//div[contains(text(), 'Organization Member Details ')]")
+        target_divs = tree.xpath("//div[contains(text(), 'Organization Member Details')]")
         parent = target_divs[0].getparent()
 
         member_table = BeautifulSoup(html.tostring(parent, pretty_print=True).decode(),'html.parser' )
@@ -507,8 +545,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(member_df,'tbl_pb_rera_member_details')
         print("member details :",flag)
+        logging.info(f"member details stored {len(member_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -528,8 +567,9 @@ for index,row in df.iterrows():
         litigation = litigation.rename(columns = {'Authority/Forum Name where case is Pending/Resolved':'authority_name'})
         flag = insert_data(litigation,'tbl_pb_rera_letigation_details')
         print("litigation details :",flag)
+        logging.info(f"letigation details stored {len(litigation)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -546,8 +586,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(project_df,'tbl_pb_rera_project_details')
         print("project details :",flag)
+        logging.info(f"project details stored {len(project_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -564,8 +605,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(land_df,'tbl_pb_rera_land_details')
         print("land details :",flag)
+        logging.info(f"land details stored {len(land_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR',e)
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -587,8 +629,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(khasra,'tbl_pb_rera_khasra_details')
         print("khasra details :",flag)  
+        logging.info(f"khasara details stored  {len(khasra)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR',e)
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -605,8 +648,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(project_plan_df,'tbl_pb_rera_project_plan_docs')
         print("project_plan  details :",flag)
+        logging.info(f"project plan details stored {project_plan_df} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR',e)
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -625,8 +669,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(inventory_df,'tbl_pb_rera_building_details')
         print("building details :",flag)  
+        logging.info(f"building details stored {len(inventory_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -646,8 +691,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(parking_df,'tbl_pb_rera_parking_details')
         print("parking details :",flag)  
+        logging.info(f"parking details stored {len(parking_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -666,8 +712,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(internal_facility_df,'tbl_pb_rera_internal_facility_details')
         print("internal_facility details :",flag)  
+        logging.info(f"internal details details stored {len(internal_facility_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR',e)
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -684,8 +731,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(External_facility_df,'tbl_pb_rera_External_facility_details')
         print("External_facility details :",flag)  
+        logging.info(f"External details details stored {len(External_facility_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
@@ -705,8 +753,9 @@ for index,row in df.iterrows():
 
         flag = insert_data(project_professionals_df,'tbl_pb_rera_professionals_details')
         print("project_professionals details :",flag)  
+        logging.info(f"project professional details details stored {len(project_professionals_df)} {flag}")
     except Exception as e:
-        print('ERROR',e)
+        logging.error('ERROR')
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')
