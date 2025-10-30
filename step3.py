@@ -129,6 +129,8 @@ building_agg = building_df.groupby('rera_id').agg(
                                           for i in x if pd.notna(i)])))
 ).reset_index()
 
+
+
 ## land details
 
 try:
@@ -147,6 +149,8 @@ land_df['residentialDevelopmentArea'] = (pd.to_numeric(land_df['area_under_resid
 land_df['commercialDevelopmentArea'] = (pd.to_numeric(land_df['area_under_commercial_development'], errors='coerce').fillna(0) * 10.7639).round().astype(int)
 land_df['industrialDevelopmentArea'] = (pd.to_numeric(land_df['area_under_industrial_development'], errors='coerce').fillna(0) * 10.7639).round().astype(int)
 land_df['underServicingArea'] = (pd.to_numeric(land_df['area_under_servicing'], errors='coerce').fillna(0) * 10.7639).round().astype(int)
+
+
 
 ## parking details
 
@@ -179,6 +183,24 @@ parking_agg.columns = [
 ]
 
 parking_agg = parking_agg.reset_index()
+
+
+
+### promoter details
+
+try:
+    with engine_115.begin() as connection:
+        sql = "SELECT * FROM punjab_rera.tbl_pb_rera_promoter_details where Month = %s "
+        promoter_df = pd.read_sql(sql, con=connection,params=(month,))
+except Exception as e:
+    print(f"database error {e}")
+
+promoter_df['promoterAddress'] = promoter_df['Official Address']
+promoter_df['promoterDistrictName'] = promoter_df['promoterDistrict']
+promoter_df['promoterStateName'] = promoter_df['promoterState']
+promoter_df['promoterMobileNo'] = promoter_df['Phone Number'] 
+promoter_df['promoterEmail'] = promoter_df['Email Address']
+
 
 
 
@@ -236,6 +258,12 @@ necessary_cols_fixed = [
     'closedParkingArea',
     'numberOfClosedParking',
     'numberOfClosedSoldParking',
+    'promoterAddress',
+    'promoterDistrictName',
+    'promoterStateName',
+    'promoterPincode',
+    'promoterEmail',
+    'promoterMobileNo',
     'monthFy'
 ]
 
