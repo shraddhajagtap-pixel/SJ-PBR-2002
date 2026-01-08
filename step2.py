@@ -22,7 +22,9 @@ from urllib.parse import quote
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-engine_115 = create_engine("mysql://Shradha:%s@192.168.0.115:3306/punjab_rera" % quote("Efcdata@2025"))
+#engine_115 = create_engine("mysql://Shradha:%s@192.168.0.115:3306/punjab_rera" % quote("Efcdata@2025"))
+
+engine_self = create_engine("mysql://Shraddha:%s@localhost:3306/punjab_rera" % quote("Smart@2025"))
 
 session = requests.Session()
 session.headers.update({
@@ -91,7 +93,7 @@ def decode_url(url):
 def insert_data(df, table):
     flag = False
     try:
-        with engine_115.begin() as connection:
+        with engine_self.begin() as connection:
             df.to_sql(table, con = connection, if_exists='append', index=False)
             flag = True
     except Exception as e:
@@ -122,6 +124,31 @@ def get_promoter_data(promoter_table,rera_id):
         # If there are 2 tds, the second spans 3 columns and represents one key-value pair
         elif len(tds) == 2:
             key = clean_text(tds[0].get_text(strip=True))
+
+            ### block to get district state and pincode
+            if 'Official Address' in key:
+                span = tds[1].find("span")
+
+                parts = [clean_text(p) for p in span.decode_contents().split('<br/>')]
+
+                if len(parts) >= 2:
+                    last_part = parts[1]
+                # Get the last part (after the <br>)
+                else:
+                    last_part = parts[-1]
+                #print(last_part)
+                try:
+                    # Clean and split
+                    clean_text2 = " ".join(last_part.split())  # 'Amritsar , Punjab - 143001'
+                    district_state, pincode = clean_text2.split(' - ')
+                    district, state = district_state.split(' , ')
+                    # Save in dictionary
+                    data['promoterDistrict'] = district.strip()
+                    data['promoterState'] = state.strip()
+                    data['promoterPincode'] = pincode.strip()
+                except Exception as e:
+                    logging.error("error in state district ",e)
+
             val = clean_text(tds[1].get_text(separator=' ', strip=True))
             data[key] = val
 
@@ -483,7 +510,7 @@ def extract_professional_table(table):
 
 
 try:
-    with engine_115.begin() as connection:
+    with engine_self.begin() as connection:
         sql = "SELECT * FROM punjab_rera.tbl_main_page where Month = %s "
         df = pd.read_sql(sql, con=connection,params=(month,))
 except Exception as e:
@@ -491,21 +518,22 @@ except Exception as e:
 
 
 ##iteration
+
+print(df.shape)
 for index,row in df.iterrows():
     genId = row['genId']
 
-    logging.info("** processing {genid } **")
+    logging.info(f"** processing {genId } **")
     print("** processing genid : **",genId)
 
     project_id = row['project_id']
     promoter_id = row['promoter_id']
     promoter_type = row['promoter_type']
     rera_id = row['project_diary_no']
-
+    time.sleep(2)
     url = f"https://rera.punjab.gov.in/reraindex/PublicView/ProjectViewDetails?inProject_ID={project_id}&inPromoter_ID={promoter_id}&inPromoterType={promoter_type}"
 
-    response = session.get(url)
-    
+    response = session.get(url,stream=True)
     response.status_code
     soup = BeautifulSoup(response.content,'html.parser')
 
@@ -528,7 +556,7 @@ for index,row in df.iterrows():
         print("promoter details :",flag)
         logging.info(f"promoter details stored {len(promoter_df)}")
     except Exception as e:
-        logging.error('ERROR')
+        logging.error(e)
         missing_df = pd.DataFrame()
         missing_df['genId'] = genId
         flag = insert_data(missing_df,'pb_missing_genid')

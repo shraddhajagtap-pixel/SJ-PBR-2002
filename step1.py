@@ -19,7 +19,9 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tessera
 
 main_url = "https://rera.punjab.gov.in/reraindex/publicview/projectinfo"
 
-engine_115 = create_engine("mysql://Shradha:%s@192.168.0.115:3306/punjab_rera" % quote("Efcdata@2025"))
+# engine_115 = create_engine("mysql://Shradha:%s@192.168.0.115:3306/punjab_rera" % quote("Efcdata@2025"))
+
+engine_self = create_engine("mysql://Shraddha:%s@localhost:3306/punjab_rera" % quote("Smart@2025"))
 
 path = r'C:\Users\pc\Shraddha\new_env\PunjabRera\HTML_Files'
 
@@ -379,7 +381,7 @@ for row in districts:
         if not df.empty:
            
             try:
-                with engine_115.begin() as connection:
+                with engine_self.begin() as connection:
                    
                     df.to_sql('tbl_main_page', if_exists='append', con=connection)
                     print("record saved")
